@@ -1,0 +1,7 @@
+archive/
+state/
+__pycache__/
+*.pyc
+.env
+*.iml
+.idea
