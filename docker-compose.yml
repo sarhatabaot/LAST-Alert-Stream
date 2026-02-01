@@ -35,7 +35,6 @@ services:
     volumes:
       - kafka_data:/bitnami/kafka
 
-    # --- Kafka readiness check ---
     healthcheck:
       test:
         [
@@ -70,7 +69,9 @@ services:
         echo "Kafka topics ready."
 
   publisher:
-    build: ./publisher
+    build:
+      context: ./publisher
+      network: host
     container_name: publisher
     depends_on:
       kafka-init:
@@ -92,7 +93,9 @@ services:
     restart: unless-stopped
 
   consumer:
-    build: ./consumer
+    build:
+      context: ./consumer
+      network: host
     container_name: consumer
     depends_on:
       kafka-init:
