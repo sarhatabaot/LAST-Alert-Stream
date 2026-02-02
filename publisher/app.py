@@ -289,7 +289,13 @@ def main() -> None:
     log(f"Polling {INPUT_DIR} every ~{POLL_SECONDS}s")
 
     try:
+        last_flush = time.time()
+
         while True:
+            producer.poll(0)
+            if time.time() - last_flush > 5:
+                producer.flush(0)
+                last_flush = time.time()
             time.sleep(1)
     except KeyboardInterrupt:
         log("Shutting down...")
