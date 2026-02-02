@@ -2,39 +2,55 @@ services:
   kafka:
     image: apache/kafka:4.1.1
     container_name: kafka
+
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: controller,broker
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
       KAFKA_CLUSTER_ID: kafka-cluster-1
-      # Listeners: 9092 for Internal (Publisher), 19092 for Host (SkyPortal)
-      KAFKA_LISTENERS: PLAINTEXT://:9092,HOST://:19092,CONTROLLER://:9093
+
+      # Listeners
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,HOST://0.0.0.0:19092,CONTROLLER://0.0.0.0:9093
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,HOST://localhost:19092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+
+      # Auto-create topics (single-topic system)
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: 3
+
+      # Single-node safe defaults
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
     ports:
       - "19092:19092"
+
     healthcheck:
-      test: ["CMD", "/opt/kafka/bin/kafka-broker-api-versions.sh", "--bootstrap-server", "localhost:9092"]
+      test:
+        [
+          "CMD",
+          "/opt/kafka/bin/kafka-broker-api-versions.sh",
+          "--bootstrap-server",
+          "localhost:9092"
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  kafka-init:
-    image: apache/kafka:4.1.1
-    container_name: kafka-init
-    depends_on:
-      kafka:
-        condition: service_healthy
-    entrypoint: [ "bash", "-c" ]
-    command: |
-      echo "Waiting for Kafka to be fully ready..."
-      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic last.alerts.raw --partitions 3 --replication-factor 1
-      echo "Topic created successfully."
+#  kafka-init:
+#    image: apache/kafka:4.1.1
+#    container_name: kafka-init
+#    depends_on:
+#      kafka:
+#        condition: service_healthy
+#    entrypoint: [ "bash", "-c" ]
+#    command: |
+#      echo "Waiting for Kafka to be fully ready..."
+#      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic last.alerts.raw --partitions 3 --replication-factor 1
+#      echo "Topic created successfully."
 
   publisher:
     build:
@@ -42,8 +58,8 @@ services:
     container_name: publisher
     restart: always  # Critical: if it hits a "Connection Refused" during boot, it will retry
     depends_on:
-      kafka-init:
-        condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
     environment:
       BOOTSTRAP_SERVERS: kafka:9092
       TOPIC: last.alerts.raw
